@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trolley Problem Game</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    #game-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <script>
+    // ===== GAME STATE =====
+    let gameState = {
+      config: null,
+      loopSequence: [],
+      currentLoopIndex: 0,
+      currentAttempt: 0,
+      currentCode: [],
+      timerInterval: null,
+      timeRemaining: 15,
+      isProcessing: false
+    };
+
+    // ===== CONFIGURATION =====
+    function showConfig() {
+      const container = document.getElementById('game-container');
+      container.innerHTML = `
+        <h1>Trolley Problem Game</h1>
+        <div class="trolley-config-form">
+          <div class="trolley-form-group">
+            <label class="trolley-label">Number of Loops:</label>
+            <input type="number" id="loop-count" class="trolley-input" min="1" value="5">
+          </div>
+          
+          <div class="trolley-form-group">
+            <label class="trolley-label">Condition:</label>
+            <div class="trolley-radio-group">
+              <label class="trolley-radio-label">
+                <input type="radio" name="condition" value="high" checked>
+                <span>High Control (80% success)</span>
+              </label>
+              <label class="trolley-radio-label">
+                <input type="radio" name="condition" value="low">
+                <span>Low Control (20% success)</span>
+              </label>
+            </div>
+          </div>
+          
+          <button class="trolley-btn trolley-btn-primary" onclick="startGame()">Start Game</button>
+        </div>
+      `;
+    }
+
+    function startGame() {
+      const loopCount = parseInt(document.getElementById('loop-count').value);
+      const condition = document.querySelector('input[name="condition"]:checked').value;
+      
+      if (!loopCount || loopCount < 1) {
+        alert('Please enter a valid number of loops');
+        return;
+      }
+      
+      // Calculate success/fail distribution
+      const successRate = condition === 'high' ? 0.8 : 0.2;
+      const successCount = Math.round(loopCount * successRate);
+      const failCount = loopCount - successCount;
+      
+      console.log(`Condition: ${condition}, Loops: ${loopCount}, Success: ${successCount}, Fail: ${failCount}`);
+      
+      // Create loop sequence
+      gameState.loopSequence = [];
+      for (let i = 0; i < successCount; i++) {
+        gameState.loopSequence.push({
+          loopNum: i + 1,
+          shouldSucceed: true
+        });
+      }
+      for (let i = 0; i < failCount; i++) {
+        gameState.loopSequence.push({
+          loopNum: successCount + i + 1,
+          shouldSucceed: false
+        });
+      }
+      
+      // Shuffle
+      for (let i = gameState.loopSequence.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [gameState.loopSequence[i], gameState.loopSequence[j]] = 
+          [gameState.loopSequence[j], gameState.loopSequence[i]];
+      }
+      
+      console.log('Loop sequence:', gameState.loopSequence);
+      
+      gameState.config = { loopCount, condition };
+      gameState.currentLoopIndex = 0;
+      
+      startLoop();
+    }
+
+    // ===== LOOP MANAGEMENT =====
+    function startLoop() {
+      if (gameState.currentLoopIndex >= gameState.loopSequence.length) {
+        showCompletion();
+        return;
+      }
+      
+      const loop = gameState.loopSequence[gameState.currentLoopIndex];
+      console.log(`\n=== Loop ${gameState.currentLoopIndex + 1}/${gameState.loopSequence.length} ===`);
+      console.log('Should succeed:', loop.shouldSucceed, 'Success attempt:', loop.successAttempt);
+      
+      gameState.currentAttempt = 0;
+      gameState.isProcessing = false;
+      
+      showTrainAnimation(() => {
+        startCodeEntry();
+      });
+    }
+
+    function showTrainAnimation(callback) {
+      const container = document.getElementById('game-container');
+      container.innerHTML = `
+        <div class="trolley-loop-counter">
+          Loop ${gameState.currentLoopIndex + 1} / ${gameState.loopSequence.length}
+        </div>
+        <div class="trolley-animation-area" id="train-area" style="background-image: url('assets/static/NEALTRACK (1).jpg'); background-size: cover; background-position: center;">
+          <img src="assets/static/TRAINFINAL.PNG" class="trolley-train trolley-train-moving" alt="Train" id="moving-train">
+        </div>
+      `;
+      
+      // Train stops at junction after 3 seconds, then show code entry
+      setTimeout(() => {
+        // Train has stopped at junction - now show code entry overlay
+        callback();
+      }, 3000);
+    }
+
+    function showScene(callback) {
+      const container = document.getElementById('game-container');
+      container.innerHTML = `
+        <div class="trolley-loop-counter">
+          Loop ${gameState.currentLoopIndex + 1} / ${gameState.loopSequence.length}
+        </div>
+        <div class="trolley-scene-area trolley-scene-visible" style="background-image: url('assets/static/NEALTRACK (1).jpg'); background-size: cover; background-position: center;">
+        </div>
+      `;
+      
+      setTimeout(callback, 1500);
+    }
+
+    // ===== CODE ENTRY =====
+    function startCodeEntry() {
+      gameState.currentAttempt = 1; // Always just 1 attempt per loop
+      gameState.currentCode = [];
+      gameState.isProcessing = false;
+      
+      console.log(`Starting code entry for loop ${gameState.currentLoopIndex + 1}`);
+      
+      const container = document.getElementById('game-container');
+      container.innerHTML = `
+        <div class="trolley-loop-counter">
+          Loop ${gameState.currentLoopIndex + 1} / ${gameState.loopSequence.length}
+        </div>
+        <div class="trolley-code-entry-container">
+          <div class="trolley-timer-display" id="timer">Time: ${gameState.timeRemaining}s</div>
+          <div class="trolley-code-boxes" id="code-boxes">
+            <div class="trolley-code-box trolley-code-box-active">_</div>
+            <div class="trolley-code-box">_</div>
+            <div class="trolley-code-box">_</div>
+            <div class="trolley-code-box">_</div>
+          </div>
+          <div class="trolley-code-instruction">Click the numbers to enter your code</div>
+          <div class="trolley-number-buttons">
+            <button class="trolley-number-btn" onclick="enterDigit('1')">1</button>
+            <button class="trolley-number-btn" onclick="enterDigit('2')">2</button>
+            <button class="trolley-number-btn" onclick="enterDigit('3')">3</button>
+            <button class="trolley-number-btn" onclick="enterDigit('4')">4</button>
+          </div>
+        </div>
+      `;
+      
+      // Start timer
+      gameState.timeRemaining = 15;
+      startTimer();
+      
+      // Also keep keyboard support
+      document.onkeydown = function(e) {
+        if (gameState.isProcessing) return;
+        const key = e.key;
+        if (['1', '2', '3', '4'].includes(key)) {
+          enterDigit(key);
+        }
+      };
+    }
+    
+    function enterDigit(digit) {
+      if (gameState.isProcessing) return;
+      if (gameState.currentCode.length >= 4) return;
+      
+      console.log('Digit entered:', digit);
+      
+      gameState.currentCode.push(digit);
+      
+      const boxes = document.querySelectorAll('.trolley-code-box');
+      const index = gameState.currentCode.length - 1;
+      
+      boxes[index].textContent = digit;
+      boxes[index].classList.remove('trolley-code-box-active');
+      boxes[index].classList.add('trolley-code-box-filled');
+      
+      if (gameState.currentCode.length < 4) {
+        boxes[gameState.currentCode.length].classList.add('trolley-code-box-active');
+      } else {
+        gameState.isProcessing = true;
+        document.onkeydown = null;
+        console.log('Code complete:', gameState.currentCode.join(''));
+        setTimeout(handleCodeSubmit, 300);
+      }
+    }
+
+    function startTimer() {
+      if (gameState.timerInterval) {
+        clearInterval(gameState.timerInterval);
+      }
+      
+      gameState.timerInterval = setInterval(() => {
+        gameState.timeRemaining--;
+        updateTimerDisplay();
+        
+        if (gameState.timeRemaining <= 0) {
+          clearInterval(gameState.timerInterval);
+          handleTimeout();
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const timer = document.getElementById('timer');
+      if (timer) {
+        timer.textContent = `Time: ${gameState.timeRemaining}s`;
+        if (gameState.timeRemaining <= 5) {
+          timer.classList.add('trolley-timer-warning');
+        }
+      }
+    }
+
+    function handleCodeSubmit() {
+      const loop = gameState.loopSequence[gameState.currentLoopIndex];
+      // Only check first attempt (no retries per loop)
+      const shouldSucceed = loop.shouldSucceed && gameState.currentAttempt === 1;
+      
+      console.log('=== CODE SUBMIT ===');
+      console.log('Loop:', gameState.currentLoopIndex + 1);
+      console.log('Attempt:', gameState.currentAttempt);
+      console.log('Loop should succeed:', loop.shouldSucceed);
+      console.log('Result: Should succeed =', shouldSucceed);
+      
+      // Stop timer
+      clearInterval(gameState.timerInterval);
+      gameState.timerInterval = null;
+      document.onkeydown = null;
+      
+      if (shouldSucceed) {
+        // Success! Show track switch
+        showTrackSwitch(() => {
+          showOutcome(true);
+        });
+      } else {
+        // Failed - show outcome directly
+        showOutcome(false);
+      }
+    }
+
+    function handleTimeout() {
+      console.log('TIMEOUT!');
+      document.onkeydown = null;
+      gameState.isProcessing = true;
+      clearInterval(gameState.timerInterval);
+      gameState.timerInterval = null;
+      showOutcome(false);
+    }
+
+    function showTrackSwitch(callback) {
+      const container = document.getElementById('game-container');
+      container.innerHTML = `
+        <div class="trolley-switch-area">
+          <div class="trolley-switch trolley-switch-active">
+            <div class="trolley-switch-lever"></div>
+            <div class="trolley-switch-text">Track Switched!</div>
+          </div>
+        </div>
+      `;
+      
+      setTimeout(callback, 2000);
+    }
+
+    function showOutcome(saved) {
+      const container = document.getElementById('game-container');
+      const outcomeClass = saved ? 'trolley-outcome-success' : 'trolley-outcome-failure';
+      const message = saved ? 'Person Saved' : 'Person Not Saved';
+      
+      container.innerHTML = `
+        <div class="trolley-outcome-area">
+          <div class="${outcomeClass} trolley-outcome-visible">
+            <div class="trolley-outcome-icon">${saved ? 'SAVED' : 'NOT SAVED'}</div>
+            <div class="trolley-outcome-message">${message}</div>
+          </div>
+        </div>
+      `;
+      
+      setTimeout(() => {
+        gameState.currentLoopIndex++;
+        startLoop();
+      }, 3000);
+    }
+
+    function showCompletion() {
+      const container = document.getElementById('game-container');
+      container.innerHTML = `
+        <div class="trolley-completion-screen">
+          <div class="trolley-completion-container">
+            <div class="trolley-completion-icon">COMPLETE</div>
+            <h2 class="trolley-completion-title">Game Complete</h2>
+            <p class="trolley-completion-message">
+              Thank you for participating. Your responses have been recorded.
+            </p>
+          </div>
+        </div>
+      `;
+      
+      console.log('Game complete!');
+    }
+
+    // ===== INITIALIZE =====
+    showConfig();
+  </script>
+</body>
+</html>
